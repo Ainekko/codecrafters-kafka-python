@@ -17,6 +17,7 @@ def main():
         data = {
            struct.pack(">I", 1) + struct.pack(">I", 7)
         }
+        print (data)
         client.sendall(data)
 
 
