@@ -14,6 +14,7 @@ def main():
     server.accept() # wait for client
     while True:
         client, addr = server.accept()
+        client.recv(1024)  # wait for client to send data
        
         data = struct.pack(">I", 1) + struct.pack(">I", 7)
        
