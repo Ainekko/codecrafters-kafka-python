@@ -10,6 +10,13 @@ def main():
     #
     server = socket.create_server(("localhost", 9092), reuse_port=True)
     server.accept() # wait for client
+    while True:
+        client, addr = server.accept()
+        data = {
+            "correlation_id": 7,
+            "message_size": 1024
+        }
+        client.sendall(str(data).encode("utf-8"))
 
 
 if __name__ == "__main__":
