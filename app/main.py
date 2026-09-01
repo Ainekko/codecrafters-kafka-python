@@ -14,9 +14,9 @@ def main():
     server.accept() # wait for client
     while True:
         client, addr = server.accept()
-        data = {
-           struct.pack(">I", 1) + struct.pack(">I", 7)
-        }
+       
+        data = struct.pack(">I", 1) + struct.pack(">I", 7)
+       
         print (data)
         client.sendall(data)
 
