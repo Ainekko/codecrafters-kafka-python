@@ -1,4 +1,6 @@
 import socket  # noqa: F401
+import struct  # noqa: F401
+
 
 
 def main():
@@ -13,10 +15,9 @@ def main():
     while True:
         client, addr = server.accept()
         data = {
-            "correlation_id": 7,
-            "message_size": 1024
+           struct.pack(">I", 1) + struct.pack(">I", 7)
         }
-        client.sendall(str(data).encode("utf-8"))
+        client.sendall(data)
 
 
 if __name__ == "__main__":
