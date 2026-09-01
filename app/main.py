@@ -16,8 +16,12 @@ def main():
     client, addr = server.accept()
     with client:
         client.recv(1024)  # wait for client to send data
+        def parse_header(data):
+            if len(data) < 8:
+                raise ValueError('Data is not complete')
+        correlation_id = struct.unpack(">I", data[:4][1])
        
-        data = struct.pack(">I", 1) + struct.pack(">I", 7)
+        data = struct.pack(">I", 1) + struct.pack(">I", correlation_id)
        
         print (data)
         client.sendall(data)
