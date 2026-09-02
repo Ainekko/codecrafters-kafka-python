@@ -64,34 +64,35 @@ def parse_header(message:bytes) -> RequestHeader:
     return RequestHeader(message_size, api_key, api_version, correlation_id)
 
 def apiVersionsHandler(client, header, supported_versions):
+
     if header.api_version not in supported_versions:
-                                print(f"Unsupported version {header.api_version}, sending error response")
-                                error_code = 35  # Unsupported version
-                                apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, tag_buffer=0,)
-                                api_keys_array, throttle_time_ms = apiVersionsParser(header, [apiKeys, DescribeTopicPartitions()], )
-                                res =  struct.pack(">I", header.correlation_id) + struct.pack(">H", error_code) + api_keys_array + throttle_time_ms + struct.pack(">b", 0)  # TAG_BUFFER
-                                message_size = struct.pack(">I", len(res))
-                                response = message_size + res
-                                client.sendall(response)
+        print(f"Unsupported version {header.api_version}, sending error response")
+        error_code = 35  # Unsupported version
+        apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, tag_buffer=0,)
+        api_keys_array, throttle_time_ms = apiVersionsParser(header, [apiKeys, DescribeTopicPartitions()], )
+        res =  struct.pack(">I", header.correlation_id) + struct.pack(">H", error_code) + api_keys_array + throttle_time_ms + struct.pack(">b", 0)  # TAG_BUFFER
+        message_size = struct.pack(">I", len(res))
+        response = message_size + res
+        client.sendall(response)
                                 
     else:
-                                error_code = 0  # No error
-                                apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, tag_buffer=0)
-                                api_keys_array, throttle_time_ms = apiVersionsParser(header, [apiKeys, DescribeTopicPartitions()])
-                                res =  struct.pack(">I", header.correlation_id) + struct.pack(">H", error_code) + api_keys_array + throttle_time_ms + struct.pack(">b", 0)  # TAG_BUFFER
-                                message_size = struct.pack(">I", len(res))
-                                print(f"Sending response with message size {len(res)} and correlation ID {header.correlation_id}")
-                                response = message_size + res
-                                client.sendall(response)
+        error_code = 0  # No error
+        apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, tag_buffer=0)
+        api_keys_array, throttle_time_ms = apiVersionsParser(header, [apiKeys, DescribeTopicPartitions()])
+        res =  struct.pack(">I", header.correlation_id) + struct.pack(">H", error_code) + api_keys_array + throttle_time_ms + struct.pack(">b", 0)  # TAG_BUFFER
+        message_size = struct.pack(">I", len(res))
+        print(f"Sending response with message size {len(res)} and correlation ID {header.correlation_id}")
+        response = message_size + res
+        client.sendall(response)
 
 def parse_topics_api(message):
-    pass
     #we should pass the message size bytes
 
     client_id_length = struct.unpack('>h', message[12:14])[0]
     body_start = 12 + 2 + client_id_length + 1  # 12 bytes for header, 2 bytes for client_id length, + the bytes for the client id content + 1 for the buffer
-    topic_name_size  = struct.unpack(">b", message[body_start:body_start + 1])[0]
-    topic_name = struct.unpack(">h", message[body_start - 1:body_start + topic_name_size])[0]
+    topic_name_size  = struct.unpack(">b", message[body_start+1:body_start + 2])[0] - 1
+    topic_name =  message[body_start + 2:body_start + 2 + topic_name_size].decode('utf-8')
+    return topic_name
     #also pass the rest of the ehader bytes
 
     #and then index into the array topic length
@@ -117,9 +118,9 @@ def main():
                         if header.api_key == 18:  # API_VERSIONS
                             apiVersionsHandler(client, header, supported_versions)   
                         elif header.api_key == 75:  # DESCRIBE_TOPIC_PARTITIONS
-                            parse_topics_api(message)  
-                        
-                       
+                            topic_name = parse_topics_api(message)
+                            client.sendall(b"Received DESCRIBE_TOPIC_PARTITIONS request for topic: " + topic_name.encode('utf-8'))
+                            print(f"Parsed topic name: {topic_name}")
 
     server = socket.create_server(("localhost", 9092), reuse_port=True)
     
