@@ -13,6 +13,7 @@ same as the real tester would.
 
 Add a stage's function to STAGES to run it. Comment ones out you haven't
 reached yet.
+adding this here to commit
 """
 
 import socket
