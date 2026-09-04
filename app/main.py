@@ -33,34 +33,52 @@ class apiKeysversion:
     api_key:int = 18
     min_version:int = 0
     max_version:int = 4
-    tag_buffer:int = 0
+    TAG_BUFFER:int = 0
 
 @dataclass
 class DescribeTopicPartitions:
     api_key:int = 75
     min_version:int = 0
     max_version:int = 0
-    tag_buffer:int = 0
+    TAG_BUFFER:int = 0
 
 @dataclass
 class DTPResponse:
     throttle_time_ms:bytes
     topics_array_length:bytes
     error_code:bytes
+    topic_name_length:bytes
+    topic_name:bytes
     topic_id:bytes
     is_internal:bytes
     partition_array_length:bytes
     topic_authorized_operations:bytes
     TAG_BUFFER:bytes
     next_cursor:bytes
-    tag_buffer:bytes
+    TAG_BUFFER2:bytes
+
+    def packall(self):
+        return (
+            self.throttle_time_ms +
+            self.topics_array_length +
+            self.error_code +
+            self.topic_name_length +
+            self.topic_name +
+            self.topic_id +
+            self.is_internal +
+            self.partition_array_length +
+            self.topic_authorized_operations +
+            self.TAG_BUFFER +
+            self.next_cursor +
+            self.TAG_BUFFER2
+        )
 
 def apiVersionsParser(req, apiKeys: list[apiKeysversion]) -> ResponseHeader:
     api_keys_array_length = struct.pack(">b", len(apiKeys) + 1)  # +1 for the DescribeTopicPartitions entry
     print(f"API keys array length: {len(apiKeys)}")
     api_key_entries = b""
     for apiKey in apiKeys:
-        api_key_entry = struct.pack(">hhhb", apiKey.api_key, apiKey.min_version, apiKey.max_version, apiKey.tag_buffer)
+        api_key_entry = struct.pack(">hhhb", apiKey.api_key, apiKey.min_version, apiKey.max_version, apiKey.TAG_BUFFER)
         api_key_entries += api_key_entry
    
     throttle_time_ms = struct.pack(">i", 0)
@@ -107,8 +125,21 @@ def DTPHandler(message, client, header):
     # DTPResponse() later idk what i am trynna do here
 
     header = struct.pack(">I", correlation_id) + struct.pack(">b", 0)  # TAG_BUFFER
-    body  = struct.pack(">b", len(topic_name)) + topic_name
-
+    # message_size  = struct.pack(">b", len(topic_name)) 
+    body = DTPResponse(
+        throttle_time_ms=struct.pack(">i", 0),
+        topics_array_length=struct.pack(">b", 2),  # Assuming one topic
+        error_code=struct.pack(">h", 3),
+        topic_name_length=struct.pack(">b", len(topic_name) + 1),  
+        topic_name=topic_name,
+        topic_id=b"\x00" * 16,
+        is_internal=struct.pack(">b", 0),  
+        partition_array_length=struct.pack(">b", 1),  
+        topic_authorized_operations=struct.pack(">i", 0),  
+        TAG_BUFFER=struct.pack(">b", 0),
+        next_cursor=struct.pack(">i", -1),      
+        TAG_BUFFER2=struct.pack(">b", 0)
+    ).packall()
     send_response(client, header, body)
 
 
@@ -118,7 +149,7 @@ def apiVersionsHandler(client, header, supported_versions):
     if header.api_version not in supported_versions:
         print(f"Unsupported version {header.api_version}, sending error response")
         error_code = 35  # Unsupported version
-        apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, tag_buffer=0,)
+        apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, TAG_BUFFER=0,)
         api_keys_array, throttle_time_ms = apiVersionsParser(header, [apiKeys, DescribeTopicPartitions()], )
         res_header =  struct.pack(">I", header.correlation_id)
         body = struct.pack(">H", error_code) + api_keys_array + throttle_time_ms + struct.pack(">b", 0)  # TAG_BUFFER
@@ -126,7 +157,7 @@ def apiVersionsHandler(client, header, supported_versions):
                                         
     else:
         error_code = 0  # No error
-        apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, tag_buffer=0)
+        apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, TAG_BUFFER=0)
         api_keys_array, throttle_time_ms = apiVersionsParser(header, [apiKeys, DescribeTopicPartitions()])
         res_header =  struct.pack(">I", header.correlation_id)
         body = struct.pack(">H", error_code) + api_keys_array + throttle_time_ms + struct.pack(">b", 0)  # TAG_BUFFER
@@ -159,7 +190,7 @@ def main():
                         else:
                             print(f"Unknown API key: {header.api_key}, sending error response")
                             error_code = 35  # Unsupported version
-                            apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, tag_buffer=0)
+                            apiKeys = apiKeysversion(api_key=header.api_key, min_version=0, max_version=4, TAG_BUFFER=0)
                             api_keys_array, throttle_time_ms = apiVersionsParser(header, [apiKeys, DescribeTopicPartitions()])
                             res_header =  struct.pack(">I", header.correlation_id)
                             body = struct.pack(">H", error_code) + api_keys_array + throttle_time_ms + struct.pack(">b", 0)  # TAG_BUFFER               
